@@ -1,24 +1,23 @@
 {
   "version": 2,
-  "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite"
+  "builds": [
+    {
+      "src": "backend/package.json",
+      "use": "@vercel/node"
     },
-    "backend": {
-      "root": "backend"
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build"
     }
-  },
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api",
-      "service": "backend"
+      "destination": "/backend/api/$1"
     },
     {
       "source": "/(.*)",
-      "destination": "/",
-      "service": "frontend"
+      "destination": "/frontend/$1"
     }
   ]
 }
