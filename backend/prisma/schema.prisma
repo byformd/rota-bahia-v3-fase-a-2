@@ -1,0 +1,83 @@
+// Rota Bahia — Backend Database Schema
+// Provider padrão: SQLite (zero configuração, roda com `npx prisma migrate dev`).
+// Para produção, troque o provider para "postgresql" e ajuste DATABASE_URL no .env
+// (ver README > Deploy do Backend).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ServiceType {
+  CARGAS_FECHADAS
+  CARGAS_FRACIONADAS
+  LOGISTICA_INTEGRADA
+  MUDANCAS
+  PORTA_A_PORTA
+}
+
+enum ShipmentStatus {
+  AGUARDANDO_COLETA
+  EM_TRANSITO
+  EM_ROTA_DE_ENTREGA
+  ENTREGUE
+  OCORRENCIA
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model QuoteRequest {
+  id              String      @id @default(cuid())
+  nome            String
+  empresa         String?
+  telefone        String
+  email           String
+  tipoServico     ServiceType
+  origem          String
+  destino         String
+  descricaoCarga  String
+  status          String      @default("novo") // novo | em-contato | convertido | descartado
+  createdAt       DateTime    @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  nome      String
+  email     String
+  telefone  String
+  assunto   String
+  mensagem  String
+  status    String   @default("novo")
+  createdAt DateTime @default(now())
+}
+
+model Shipment {
+  id            String         @id @default(cuid())
+  trackingCode  String         @unique
+  origem        String
+  destino       String
+  status        ShipmentStatus @default(AGUARDANDO_COLETA)
+  clienteNome   String
+  createdAt     DateTime       @default(now())
+  events        TrackingEvent[]
+}
+
+model TrackingEvent {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id])
+  status      ShipmentStatus
+  location    String
+  description String
+  occurredAt  DateTime @default(now())
+}

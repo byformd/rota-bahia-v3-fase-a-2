@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rota Bahia — Painel Admin</title>
+<style>
+  :root {
+    --primary: #0F2A4A;
+    --primary-deep: #081A2E;
+    --signal: #E3A008;
+    --ink: #0A1A2F;
+    --ink-soft: #445266;
+    --line: #E1E7EE;
+    --canvas: #F7F9FC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Inter, sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+  }
+  header {
+    background: var(--primary-deep);
+    color: white;
+    padding: 1.25rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+  header button {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.25);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+  .login-card {
+    max-width: 380px;
+    margin: 8rem auto;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 1.25rem;
+    padding: 2.5rem;
+    box-shadow: 0 8px 24px -8px rgba(10,26,47,0.12);
+  }
+  .login-card h2 { margin-top: 0; font-size: 1.25rem; }
+  label { display: block; font-size: 0.8rem; color: var(--ink-soft); margin-bottom: 0.35rem; margin-top: 1rem; }
+  input {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border: 1px solid #C7D1DC;
+    border-radius: 0.65rem;
+    font-size: 0.9rem;
+  }
+  button.primary {
+    margin-top: 1.5rem;
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .error { color: #C0392B; font-size: 0.85rem; margin-top: 0.75rem; }
+  .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+  .tabs button {
+    background: white;
+    border: 1px solid var(--line);
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+  .tabs button.active { background: var(--primary); color: white; border-color: var(--primary); }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 1rem; overflow: hidden; box-shadow: 0 1px 2px rgba(10,26,47,0.06); }
+  th, td { text-align: left; padding: 0.85rem 1rem; font-size: 0.85rem; border-bottom: 1px solid var(--line); }
+  th { background: var(--canvas); font-weight: 600; color: var(--ink-soft); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .status-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; background: #FBEBC6; color: #7A5300; }
+  .hidden { display: none; }
+  .empty { padding: 3rem; text-align: center; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div id="login-view" class="login-card">
+  <h2>Painel Rota Bahia</h2>
+  <p style="color: var(--ink-soft); font-size: 0.875rem;">Entre com sua conta de administrador.</p>
+  <label for="email">E-mail</label>
+  <input id="email" type="email" placeholder="admin@rotabahia.com.br" />
+  <label for="password">Senha</label>
+  <input id="password" type="password" placeholder="••••••••" />
+  <button class="primary" id="login-btn">Entrar</button>
+  <p class="error hidden" id="login-error"></p>
+</div>
+
+<div id="dashboard-view" class="hidden">
+  <header>
+    <h1>Rota Bahia — Painel Admin</h1>
+    <button id="logout-btn">Sair</button>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="quotes">Cotações</button>
+      <button class="tab-btn" data-tab="contact">Contatos</button>
+      <button class="tab-btn" data-tab="shipments">Rastreamentos</button>
+    </div>
+    <div id="content"></div>
+  </main>
+</div>
+
+<script>
+const API = window.location.origin + '/api'
+let token = localStorage.getItem('rb_admin_token') || ''
+
+const loginView = document.getElementById('login-view')
+const dashboardView = document.getElementById('dashboard-view')
+const content = document.getElementById('content')
+
+function showDashboard() {
+  loginView.classList.add('hidden')
+  dashboardView.classList.remove('hidden')
+  loadTab('quotes')
+}
+
+function showLogin() {
+  dashboardView.classList.add('hidden')
+  loginView.classList.remove('hidden')
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('email').value
+  const password = document.getElementById('password').value
+  const errorEl = document.getElementById('login-error')
+  errorEl.classList.add('hidden')
+
+  try {
+    const res = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Falha no login')
+    token = data.token
+    localStorage.setItem('rb_admin_token', token)
+    showDashboard()
+  } catch (err) {
+    errorEl.textContent = err.message
+    errorEl.classList.remove('hidden')
+  }
+})
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('rb_admin_token')
+  token = ''
+  showLogin()
+})
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'))
+    btn.classList.add('active')
+    loadTab(btn.dataset.tab)
+  })
+})
+
+async function authFetch(path) {
+  const res = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } })
+  if (res.status === 401) { showLogin(); throw new Error('Sessão expirada') }
+  return res.json()
+}
+
+async function loadTab(tab) {
+  content.innerHTML = '<div class="empty">Carregando...</div>'
+  try {
+    if (tab === 'quotes') {
+      const quotes = await authFetch('/quotes')
+      renderTable(quotes, [
+        ['nome', 'Nome'], ['telefone', 'Telefone'], ['tipoServico', 'Serviço'],
+        ['origem', 'Origem'], ['destino', 'Destino'], ['status', 'Status'],
+      ])
+    } else if (tab === 'contact') {
+      const messages = await authFetch('/contact')
+      renderTable(messages, [
+        ['nome', 'Nome'], ['email', 'E-mail'], ['assunto', 'Assunto'], ['status', 'Status'],
+      ])
+    } else if (tab === 'shipments') {
+      const shipments = await authFetch('/tracking')
+      renderTable(shipments, [
+        ['trackingCode', 'Código'], ['clienteNome', 'Cliente'],
+        ['origem', 'Origem'], ['destino', 'Destino'], ['status', 'Status'],
+      ])
+    }
+  } catch (err) {
+    content.innerHTML = `<div class="empty">${err.message}</div>`
+  }
+}
+
+function renderTable(rows, columns) {
+  if (!rows.length) {
+    content.innerHTML = '<div class="empty">Nenhum registro encontrado.</div>'
+    return
+  }
+  const thead = columns.map(([, label]) => `<th>${label}</th>`).join('')
+  const tbody = rows.map((row) => {
+    const cells = columns.map(([key]) => {
+      const isStatus = key === 'status'
+      const value = row[key] ?? '—'
+      return `<td>${isStatus ? `<span class="status-badge">${value}</span>` : value}</td>`
+    }).join('')
+    return `<tr>${cells}</tr>`
+  }).join('')
+  content.innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`
+}
+
+if (token) showDashboard()
+</script>
+</body>
+</html>
